@@ -1,0 +1,46 @@
+stages:
+  - test
+  - build
+  - deploy
+
+variables:
+  MAVEN_OPTS: "-Dmaven.repo.local=.m2/repository"
+
+cache:
+  paths:
+    - .m2/repository/
+    - target/
+
+build:
+  stage: build
+  image: maven:3.8.6-openjdk-11
+  script:
+    - mvn clean package
+  artifacts:
+    paths:
+      - target/*.jar
+  only:
+    - main
+
+test:
+  stage: test
+  image: maven:3.8.6-openjdk-11
+  script:
+    - mvn test
+  only:
+    - main
+
+deploy:
+  stage: deploy
+  image: alpine:latest
+  script:
+    - echo "Deploying application..."
+    - apk add --no-cache openssh-client
+    - mkdir -p ~/.ssh
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - ssh-keyscan -H $SERVER_IP >> ~/.ssh/known_hosts
+    - scp target/*.jar $SSH_USER@$SERVER_IP:/deploy/path/
+  only:
+    - main
+  when: manual
